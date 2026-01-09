@@ -16,40 +16,7 @@ void setup() {
 }
 
 void loop() {
-  if (dlcCommand(0x20, 0x05, 0x10, 0x06)) {
-    byte tps = (dlcdata[2] - 24) / 2;    
-    lcd.setCursor(0,0);
-
-    // TPS - 4 digits
-    lcd.print(calculateTps(dlcdata[6]));
-    lcd.print(' ');
-    
-    // MAP - 4 digits
-    lcd.print(calculateKpa(dlcdata[4]));
-    lcd.print(' ');
-    
-    // ECT - 4 digits
-    lcd.print(calculateTemp(dlcdata[2]));
-    lcd.print(' ');
-
-    // IAT - 4 digits
-    lcd.print(calculateTemp(dlcdata[3]));
-
-    lcd.setCursor(0,1);
-
-    // IAT - 4 digits
-    lcd.print(calculateO2(dlcdata[7]));
-    lcd.print(' ');
-  }
-
-  if (dlcCommand(0x20, 0x05, 0x00, 0x03)) {
-    // RPM - 5 digits
-    lcd.print(calculateRpm(dlcdata[2], dlcdata[3]));
-    lcd.print(' ');
-
-    // VSS - 2 digits
-    lcd.print(formatByteAsLeftPaddedString(dlcdata[4], 3, '0'));
-  }
+  page2();
 
   delay(250);
 }
@@ -135,6 +102,29 @@ void resetEcu()
   dlcCommand(0x21, 0x04, 0x01, 0x00); // reset ecu
 }
 
+String calculateFuelTrim(byte input) {
+  byte output = ((input / 128) - 1) * 100;
+  return formatByteAsLeftPaddedString(output, 2, '0');
+}
+
+String calculateIACV(byte input) {
+  byte output = input / 2.55;
+  return formatByteAsLeftPaddedString(output, 2, '0');
+}
+
+String calculateIgnitionAdvance(byte input) {
+  byte output = (input - 128) / 2;
+  return formatByteAsLeftPaddedString(output, 2, '0');
+}
+
+String calculateInjectorPulseWidth(byte high, byte low) {
+  int pulseWidth = ((high * 256) + low) / 250;
+
+  String output = '0000' + String(pulseWidth, DEC);
+
+  return output.substring(output.length()-5);
+}
+
 String calculateKpa(byte input) {
   byte output = input * 0.716 - 5;
   return formatByteAsLeftPaddedString(output, 3, '0');
@@ -161,6 +151,76 @@ String calculateTemp(byte input) {
 String calculateTps(byte input) {
   byte output = (input - 24) / 2;
   return formatByteAsLeftPaddedString(output, 3, '0');
+}
+
+/*
+* PAGES
+*/
+
+void page1() {
+  if (dlcCommand(0x20, 0x05, 0x10, 0x06)) {
+    lcd.setCursor(0,0);
+
+    // TPS - 4 digits
+    lcd.print(calculateTps(dlcdata[6]));
+    lcd.print(' ');
+    
+    // MAP - 4 digits
+    lcd.print(calculateKpa(dlcdata[4]));
+    lcd.print(' ');
+    
+    // ECT - 4 digits
+    lcd.print(calculateTemp(dlcdata[2]));
+    lcd.print(' ');
+
+    // IAT - 4 digits
+    lcd.print(calculateTemp(dlcdata[3]));
+
+    lcd.setCursor(0,1);
+
+    // IAT - 4 digits
+    lcd.print(calculateO2(dlcdata[7]));
+    lcd.print(' ');
+  }
+
+  if (dlcCommand(0x20, 0x05, 0x00, 0x03)) {
+    // RPM - 5 digits
+    lcd.print(calculateRpm(dlcdata[2], dlcdata[3]));
+    lcd.print(' ');
+
+    // VSS - 2 digits
+    lcd.print(formatByteAsLeftPaddedString(dlcdata[4], 3, '0'));
+  }
+}
+
+void page2() {
+  if (dlcCommand(0x20, 0x05, 0x20, 0x10)) {
+    lcd.setCursor(0,0);
+
+    // STFT - 3 digits
+    lcd.print(calculateFuelTrim(dlcdata[2]));
+    lcd.print(' ');
+    
+    // LTFT - 2 digits
+    lcd.print(calculateFuelTrim(dlcdata[4]));
+    
+    // 6 spaces
+    lcd.print("       ");
+    
+    // Injector Pulse Width - 5 digits
+    lcd.print(calculateInjectorPulseWidth(dlcdata[6], dlcdata[7]));  
+
+    lcd.setCursor(0,1);
+
+    // Ignition Advance - 2 digits
+    lcd.print(calculateIgnitionAdvance(dlcdata[8]));
+    
+    // 5 spaces
+    lcd.print("     ");
+
+    // IACV -  2 digits
+    lcd.print(calculateIACV(dlcdata[10]));
+  }
 }
 
 
