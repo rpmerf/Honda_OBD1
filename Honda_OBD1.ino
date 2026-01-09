@@ -103,54 +103,48 @@ void resetEcu()
 }
 
 String calculateFuelTrim(byte input) {
-  byte output = ((input / 128) - 1) * 100;
-  return formatByteAsLeftPaddedString(output, 2, '0');
+  byte fuelTrim = ((input / 128) - 1) * 100;
+  return formatIntAsLeftPaddedString(output, 2);
 }
 
 String calculateIACV(byte input) {
   byte output = input / 2.55;
-  return formatByteAsLeftPaddedString(output, 2, '0');
+  return formatIntAsLeftPaddedString(output, 2);
 }
 
 String calculateIgnitionAdvance(byte input) {
   byte output = (input - 128) / 2;
-  return formatByteAsLeftPaddedString(output, 2, '0');
+  return formatIntAsLeftPaddedString(output, 2);
 }
 
 String calculateInjectorPulseWidth(byte high, byte low) {
-  int pulseWidth = ((high * 256) + low) / 250;
-
-  String output = '0000' + String(pulseWidth, DEC);
-
-  return output.substring(output.length()-5);
+  int pulseWidth = (high << 8 | low) / 250;
+  return formatIntAsLeftPaddedString(output, 5);
 }
 
 String calculateKpa(byte input) {
   byte output = input * 0.716 - 5;
-  return formatByteAsLeftPaddedString(output, 3, '0');
+  return formatIntAsLeftPaddedString(output, 3);
 }
 
 String calculateO2(byte input) {
   byte output = input / 0.513;
-  return formatByteAsLeftPaddedString(output, 3, '0');
+  return formatIntAsLeftPaddedString(output, 3);
 }
 
 String calculateRpm(byte high, byte low) {
-  int rpm = 1875000 / ((high * 256) + low + 1);
-  
-  String output = '0' + String(rpm, DEC);
-
-  return output.substring(output.length()-4);
+  int rpm = 1875000 / (high << 8 | low);  
+  return formatIntAsLeftPaddedString(output, 4);
 }
 
 String calculateTemp(byte input) {  
   byte output = 155.04149 - input * 3.0414878 + pow(input, 2) * 0.03952185 - pow(input, 3) * 0.00029383913 + pow(input, 4) * 0.0000010792568 - pow(input, 5) * 0.0000000015618437;
-  return formatByteAsLeftPaddedString(output, 3, '0');
+  return formatIntAsLeftPaddedString(output, 3);
 }
 
 String calculateTps(byte input) {
   byte output = (input - 24) / 2;
-  return formatByteAsLeftPaddedString(output, 3, '0');
+  return formatIntAsLeftPaddedString(output, 3);
 }
 
 /*
@@ -189,7 +183,7 @@ void page1() {
     lcd.print(' ');
 
     // VSS - 2 digits
-    lcd.print(formatByteAsLeftPaddedString(dlcdata[4], 3, '0'));
+    lcd.print(formatIntAsLeftPaddedString(dlcdata[4], 3));
   }
 }
 
@@ -223,32 +217,39 @@ void page2() {
   }
 }
 
-
 /*
 * STRING FUNCTIONS
 */
 
-String formatByteAsLeftPaddedString(byte input, byte digits, char padding) {
-  String output = "";
-  
-  // Add padding to the left.  
-  // input will have at least 1 digit, so add (digits-1) chars of padding
-  for (int i=1; i<digits; i++){
-    output += padding;
-  }
-  
-  // Add decimal value of the input
-  output += String(input, DEC);  
+String formatIntAsLeftPaddedString(int input, byte digits) {
+  String output = String(input, DEC); 
+  boolean isNegative = false;
 
-  return output.substring(output.length()-digits);
+  // If negative, remove symbol 
+  if (output.startsWith("-")) {
+    isNegative = true;
+    output = output.substring(1);
+  }
+
+  // Prepend until we hit the correct length
+  while (output.length() < digits) {
+    output = '0' + output;
+  }
+
+  // if negative, replace the symbol
+  if (isNegative) {
+    output = '-' + output.substring(1);
+  }
+
+  return output;
 }
 
 String formatByteAs2DigitHex(byte input) {
   String output = "";
   
-  if (input < 16) {
+  if (input < 0x10) {
     // If the value is less than 0x10, print a leading zero
-    output += "0";
+    output = "0";
   }
   output += String(input, HEX);  
   output.toUpperCase();
