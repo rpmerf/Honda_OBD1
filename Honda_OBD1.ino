@@ -1,6 +1,12 @@
 #include <LiquidCrystal.h>
 #include <SoftwareSerialWithHalfDuplex.h>
 
+const char TWO_DIGITS[5] = "%02d";
+const char TWO_DIGIT_HEX[5] = "%02X";
+const char THREE_DIGITS[5] = "%03d";
+const char FOUR_DIGITS[5] = "%04d";
+const char FIVE_DIGITS[5] = "%05d";
+
 LiquidCrystal lcd(0, 1, 2, 3, 4, 5);
 SoftwareSerialWithHalfDuplex dlcSerial(10, 10, false, false);
 
@@ -103,48 +109,48 @@ void resetEcu()
 }
 
 String calculateFuelTrim(byte input) {
-  byte fuelTrim = ((input / 128) - 1) * 100;
-  return formatIntAsLeftPaddedString(output, 2);
+  byte output = ((input / 128) - 1) * 100;
+  return formatInt(output, TWO_DIGITS);
 }
 
 String calculateIACV(byte input) {
   byte output = input / 2.55;
-  return formatIntAsLeftPaddedString(output, 2);
+  return formatInt(output, TWO_DIGITS);
 }
 
 String calculateIgnitionAdvance(byte input) {
   byte output = (input - 128) / 2;
-  return formatIntAsLeftPaddedString(output, 2);
+  return formatInt(output, TWO_DIGITS);
 }
 
 String calculateInjectorPulseWidth(byte high, byte low) {
-  int pulseWidth = (high << 8 | low) / 250;
-  return formatIntAsLeftPaddedString(output, 5);
+  int output = (high << 8 | low) / 250;
+  return formatInt(output, FIVE_DIGITS);
 }
 
 String calculateKpa(byte input) {
   byte output = input * 0.716 - 5;
-  return formatIntAsLeftPaddedString(output, 3);
+  return formatInt(output, THREE_DIGITS);
 }
 
 String calculateO2(byte input) {
   byte output = input / 0.513;
-  return formatIntAsLeftPaddedString(output, 3);
+  return formatInt(output, THREE_DIGITS);
 }
 
 String calculateRpm(byte high, byte low) {
-  int rpm = 1875000 / (high << 8 | low);  
-  return formatIntAsLeftPaddedString(output, 4);
+  int output = 1875000 / (high << 8 | low);  
+  return formatInt(output, FOUR_DIGITS);
 }
 
 String calculateTemp(byte input) {  
   byte output = 155.04149 - input * 3.0414878 + pow(input, 2) * 0.03952185 - pow(input, 3) * 0.00029383913 + pow(input, 4) * 0.0000010792568 - pow(input, 5) * 0.0000000015618437;
-  return formatIntAsLeftPaddedString(output, 3);
+  return formatInt(output, THREE_DIGITS);
 }
 
 String calculateTps(byte input) {
   byte output = (input - 24) / 2;
-  return formatIntAsLeftPaddedString(output, 3);
+  return formatInt(output, THREE_DIGITS);
 }
 
 /*
@@ -183,7 +189,7 @@ void page1() {
     lcd.print(' ');
 
     // VSS - 2 digits
-    lcd.print(formatIntAsLeftPaddedString(dlcdata[4], 3));
+    lcd.print(formatInt(dlcdata[4], THREE_DIGITS));
   }
 }
 
@@ -191,29 +197,50 @@ void page2() {
   if (dlcCommand(0x20, 0x05, 0x20, 0x10)) {
     lcd.setCursor(0,0);
 
-    // STFT - 3 digits
-    lcd.print(calculateFuelTrim(dlcdata[2]));
+    // STFT - 2 digits
+    lcd.print(formatInt(dlcdata[2], TWO_DIGIT_HEX));
+    
+    // Space - 1 digit
     lcd.print(' ');
     
     // LTFT - 2 digits
-    lcd.print(calculateFuelTrim(dlcdata[4]));
+    lcd.print(formatInt(dlcdata[4], TWO_DIGIT_HEX));
     
-    // 6 spaces
-    lcd.print("       ");
+    // 5 spaces
+    lcd.print("     ");
     
     // Injector Pulse Width - 5 digits
-    lcd.print(calculateInjectorPulseWidth(dlcdata[6], dlcdata[7]));  
+    lcd.print(formatInt(dlcdata[6], TWO_DIGIT_HEX));
+    lcd.print(' ');
+    lcd.print(formatInt(dlcdata[7], TWO_DIGIT_HEX));  
 
     lcd.setCursor(0,1);
 
     // Ignition Advance - 2 digits
-    lcd.print(calculateIgnitionAdvance(dlcdata[8]));
+    lcd.print(formatInt(dlcdata[8], TWO_DIGIT_HEX));
     
     // 5 spaces
     lcd.print("     ");
 
     // IACV -  2 digits
-    lcd.print(calculateIACV(dlcdata[10]));
+    lcd.print(formatInt(dlcdata[10], TWO_DIGIT_HEX));
+  }
+}
+
+void page3() {
+  if (dlcCommand(0x20, 0x05, 0x20, 0x10)) {
+    lcd.setCursor(0,0);
+
+    // 8 digits
+    lcd.print("CRC: ");
+    lcd.print(formatInt(dlcChecksumError, THREE_DIGITS))
+
+    // 8
+    lcd.print(" TO: ");
+    lcd.print(formatInt(dlcTimeout, THREE_DIGITS))
+
+    lcd.setCursor(0,1);
+    printResponse();
   }
 }
 
@@ -221,38 +248,9 @@ void page2() {
 * STRING FUNCTIONS
 */
 
-String formatIntAsLeftPaddedString(int input, byte digits) {
-  String output = String(input, DEC); 
-  boolean isNegative = false;
-
-  // If negative, remove symbol 
-  if (output.startsWith("-")) {
-    isNegative = true;
-    output = output.substring(1);
-  }
-
-  // Prepend until we hit the correct length
-  while (output.length() < digits) {
-    output = '0' + output;
-  }
-
-  // if negative, replace the symbol
-  if (isNegative) {
-    output = '-' + output.substring(1);
-  }
-
-  return output;
-}
-
-String formatByteAs2DigitHex(byte input) {
-  String output = "";
-  
-  if (input < 0x10) {
-    // If the value is less than 0x10, print a leading zero
-    output = "0";
-  }
-  output += String(input, HEX);  
-  output.toUpperCase();
+String formatInt(int input, char* format) {
+  char output[6] = {0};
+  snprintf(output, 6, format, input);
   return output;
 }
 
@@ -260,7 +258,7 @@ void printResponse() {
   lcd.setCursor(0, 1);
 
   for (int i=0; i<5; i++){
-    String hexValue = formatByteAs2DigitHex(dlcdata[i]);
+    String hexValue = formatInt(dlcdata[i], TWO_DIGIT_HEX);
     lcd.print(hexValue);
     lcd.print(' ');
   }
